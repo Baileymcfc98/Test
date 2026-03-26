@@ -1,0 +1,2431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Immersive Resource Workspace Pro</title>
+  <style>
+    :root {
+      --bg: #071019;
+      --panel-border: rgba(255,255,255,0.10);
+      --soft-border: rgba(255,255,255,0.08);
+      --text: #f4f7fb;
+      --muted: rgba(255,255,255,0.72);
+      --btn-bg: rgba(255,255,255,0.96);
+      --btn-text: #121826;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: Arial, sans-serif;
+      color: var(--text);
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: contain;
+      background-image:
+        radial-gradient(circle at 50% 25%, rgba(125,211,252,0.08), transparent 28%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.05), transparent 25%),
+        url('background.jpg'),
+        linear-gradient(180deg, #08111b 0%, #05090f 100%);
+      background-color: #05090f;
+    }
+
+    #spotlightOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.42);
+      z-index: 18;
+      display: none;
+      pointer-events: none;
+    }
+
+    #spotlightHole {
+      position: absolute;
+      border-radius: 24px;
+      background: transparent;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.42);
+      pointer-events: none;
+    }
+
+    #sidebar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 330px;
+      height: 100%;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      background: linear-gradient(180deg, rgba(15,23,35,0.95), rgba(10,15,24,0.95));
+      border-right: 1px solid var(--panel-border);
+      box-shadow: 10px 0 28px rgba(0,0,0,0.28);
+      backdrop-filter: blur(10px);
+      transition: transform 0.22s ease;
+    }
+
+    #sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+
+    #sidebarHeader {
+      padding: 22px 20px 16px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    #folderTree {
+      padding: 14px;
+      border-top: 1px solid var(--soft-border);
+      border-bottom: 1px solid var(--soft-border);
+    }
+
+    .folderBtn {
+      width: 100%;
+      text-align: left;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-size: 17px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .folderBtn.active {
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(125,211,252,0.28);
+    }
+
+    .folderLevel2 { margin-left: 18px; }
+    .folderLevel3 { margin-left: 36px; font-size: 16px; }
+
+    #folderContentTitle {
+      display: none;
+      padding: 14px 18px 10px;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    #folderContent {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 14px 18px;
+      box-sizing: border-box;
+    }
+
+    .folderGrid {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .folderGrid.active { display: grid; }
+
+    #folder-widgets {
+      grid-template-columns: 1fr;
+    }
+
+    .folderSlot {
+      min-height: 116px;
+      border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,0.14);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-sizing: border-box;
+      padding: 8px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    #folder-widgets .folderSlot {
+      min-height: 88px;
+    }
+
+    #topPanels {
+      position: absolute;
+      top: 18px;
+      left: 354px;
+      right: 20px;
+      z-index: 35;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: left 0.22s ease;
+    }
+
+    #topPanels.sidebar-collapsed {
+      left: 20px;
+    }
+
+    #toolbar, #utilityBar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: flex-start;
+    }
+
+    .toolBtn {
+      min-width: 120px;
+      padding: 13px 18px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 14px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.14);
+      touch-action: manipulation;
+    }
+
+    .toolBtn.active {
+      outline: 3px solid rgba(16,24,40,0.96);
+      outline-offset: 1px;
+    }
+
+    .statusPill {
+      min-width: 110px;
+      padding: 13px 16px;
+      border-radius: 14px;
+      background: rgba(14,20,30,0.92);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.08);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bgBox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 16px;
+      background: rgba(14,20,30,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.14);
+    }
+
+    .bgLabel {
+      color: white;
+      font-weight: 700;
+      padding: 0 6px;
+      white-space: nowrap;
+    }
+
+    .miniBtn {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.96);
+      color: #101828;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    #drawLayer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      pointer-events: none;
+      touch-action: none;
+    }
+
+    #workspaceHint {
+      position: absolute;
+      top: 170px;
+      left: 354px;
+      right: 20px;
+      bottom: 20px;
+      z-index: 1;
+      border: 1px dashed rgba(255,255,255,0.10);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      pointer-events: none;
+      transition: left 0.22s ease;
+    }
+
+    #workspaceHint.sidebar-collapsed {
+      left: 20px;
+    }
+
+    #cloneBin {
+      position: absolute;
+      right: 26px;
+      bottom: 26px;
+      width: 180px;
+      height: 110px;
+      z-index: 34;
+      border-radius: 22px;
+      border: 2px dashed rgba(255,255,255,0.22);
+      background: rgba(20, 10, 10, 0.45);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 700;
+      line-height: 1.3;
+      pointer-events: none;
+    }
+
+    #cloneBin.active {
+      background: rgba(120, 20, 20, 0.75);
+      border-color: rgba(255,255,255,0.5);
+    }
+
+    .folderItem {
+      position: absolute;
+      z-index: 45;
+      height: auto;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.18));
+    }
+
+    .stageClone {
+      position: absolute;
+      height: auto;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-drag: none;
+      transform-origin: center center;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.24));
+    }
+
+    .stageClone.selected,
+    .widgetClone.selected {
+      outline: 3px solid rgba(255,255,255,0.95);
+      outline-offset: 3px;
+    }
+
+    .stageClone.locked,
+    .widgetClone.locked {
+      box-shadow: inset 0 0 0 9999px rgba(255,255,255,0.02);
+    }
+
+    .stageClone.multiSelected,
+    .widgetClone.multiSelected {
+      outline: 3px dashed rgba(125,211,252,0.95);
+      outline-offset: 4px;
+    }
+
+    .widgetMaster {
+      position: absolute;
+      z-index: 45;
+      border-radius: 16px;
+      background: rgba(14,20,30,0.96);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.20);
+      color: white;
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+      overflow: hidden;
+    }
+
+    .widgetClone {
+      position: absolute;
+      border-radius: 18px;
+      background: rgba(14,20,30,0.96);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.22);
+      color: white;
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+      overflow: hidden;
+      transform-origin: center center;
+    }
+
+    .widgetHeader {
+      padding: 10px 14px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .widgetBody {
+      padding: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .widgetMiniBtn {
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.96);
+      color: #101828;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .widgetActionBtn {
+      min-width: 120px;
+      height: 42px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.96);
+      color: #101828;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 14px;
+    }
+
+    .widgetValue {
+      min-width: 64px;
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      padding: 0 10px;
+      box-sizing: border-box;
+    }
+
+    .widgetTeamCol {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .widgetTeamTitle {
+      font-weight: 700;
+    }
+
+    .textBoxArea {
+      width: 100%;
+      min-height: 120px;
+      box-sizing: border-box;
+      border: none;
+      resize: both;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 18px;
+      line-height: 1.4;
+      font-family: Arial, sans-serif;
+      background: rgba(255,255,255,0.96);
+      color: #111827;
+    }
+
+    .mediaUrlInput,
+    .mediaPosterInput {
+      width: 100%;
+      box-sizing: border-box;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: rgba(255,255,255,0.96);
+      color: #111827;
+    }
+
+    .mediaFrameWrap {
+      width: 100%;
+      height: 220px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      position: relative;
+    }
+
+    .mediaFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+      display: none;
+    }
+
+    .mediaVideo {
+      width: 100%;
+      height: 100%;
+      background: black;
+      display: none;
+    }
+
+    .mediaFallback {
+      display: none;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 14px;
+      color: white;
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mediaFallbackText {
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .mediaOpenLink {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: white;
+      color: #111827;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .hotspot {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255, 208, 0, 0.95);
+      color: #111;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+      cursor: grab;
+      z-index: 85;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .hotspot.locked {
+      background: rgba(255, 208, 0, 0.55);
+    }
+
+    .hotspot.selected {
+      outline: 3px solid white;
+      outline-offset: 3px;
+    }
+
+    #hotspotEditor {
+      position: absolute;
+      z-index: 1000;
+      display: none;
+      width: 320px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(14,20,30,0.96);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 16px 34px rgba(0,0,0,0.34);
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+    }
+
+    #hotspotEditor input,
+    #hotspotEditor textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.96);
+      color: #101828;
+      font-family: Arial, sans-serif;
+    }
+
+    #hotspotEditor textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .editorRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .editorBtn {
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.96);
+      color: #101828;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #scaleControls {
+      position: absolute;
+      z-index: 999;
+      display: none;
+      width: 390px;
+      box-sizing: border-box;
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(14,20,30,0.96);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 16px 34px rgba(0,0,0,0.34);
+      backdrop-filter: blur(10px);
+      touch-action: none;
+    }
+
+    .scaleRow {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .scaleRow:last-child { margin-bottom: 0; }
+    .scaleRowTop { grid-template-columns: 64px 1fr 64px; align-items: center; }
+    .scaleRowRotate, .scaleRowMid, .scaleRowBottom, .scaleRowLock { grid-template-columns: 1fr 1fr; }
+
+    .scaleBtn {
+      width: 100%;
+      height: 64px;
+      border: none;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.98);
+      color: #101828;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.14);
+      touch-action: manipulation;
+    }
+
+    .scaleBtn.smallSymbol {
+      font-size: 34px;
+      font-weight: 500;
+    }
+
+    #scaleLabel {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    #item1, #item2, #item3, #item4, #item5, #item7, #item8 { width: 120px; }
+    #item6 { width: 135px; }
+    #item9, #item10, #item11, #item12, #item13, #item14, #item15, #item16 { width: 120px; }
+    #item17, #item18, #item19, #item20, #item21, #item22, #item23, #item24 { width: 100px; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="spotlightOverlay">
+      <div id="spotlightHole"></div>
+    </div>
+
+    <canvas id="drawLayer"></canvas>
+
+    <div id="sidebar">
+      <div id="sidebarHeader">Resources & Widgets</div>
+
+      <div id="folderTree">
+        <button id="lessonResourcesBtn" class="folderBtn">📁 Lesson Resources</button>
+
+        <div id="earlyYearsWrap" style="display:none;">
+          <button id="earlyYearsBtn" class="folderBtn folderLevel2">📁 Early Years</button>
+
+          <div id="earlyYearsFoldersWrap" style="display:none;">
+            <button id="planetsBtn" class="folderBtn folderLevel3">📂 Planets</button>
+            <button id="infoCardsBtn" class="folderBtn folderLevel3">📂 InfoCards</button>
+            <button id="nameTagsBtn" class="folderBtn folderLevel3">📂 NameTags</button>
+          </div>
+        </div>
+
+        <button id="widgetsRootBtn" class="folderBtn">📁 Widgets</button>
+
+        <div id="widgetsWrap" style="display:none;">
+          <button id="widgetsFolderBtn" class="folderBtn folderLevel2">📂 Widgets Library</button>
+        </div>
+      </div>
+
+      <div id="folderContentTitle">Planets</div>
+
+      <div id="folderContent">
+        <div id="folder-planets" class="folderGrid">
+          <div id="slot-item1" class="folderSlot"></div>
+          <div id="slot-item2" class="folderSlot"></div>
+          <div id="slot-item3" class="folderSlot"></div>
+          <div id="slot-item4" class="folderSlot"></div>
+          <div id="slot-item5" class="folderSlot"></div>
+          <div id="slot-item6" class="folderSlot"></div>
+          <div id="slot-item7" class="folderSlot"></div>
+          <div id="slot-item8" class="folderSlot"></div>
+        </div>
+
+        <div id="folder-infocards" class="folderGrid">
+          <div id="slot-item9" class="folderSlot"></div>
+          <div id="slot-item10" class="folderSlot"></div>
+          <div id="slot-item11" class="folderSlot"></div>
+          <div id="slot-item12" class="folderSlot"></div>
+          <div id="slot-item13" class="folderSlot"></div>
+          <div id="slot-item14" class="folderSlot"></div>
+          <div id="slot-item15" class="folderSlot"></div>
+          <div id="slot-item16" class="folderSlot"></div>
+        </div>
+
+        <div id="folder-nametags" class="folderGrid">
+          <div id="slot-item17" class="folderSlot"></div>
+          <div id="slot-item18" class="folderSlot"></div>
+          <div id="slot-item19" class="folderSlot"></div>
+          <div id="slot-item20" class="folderSlot"></div>
+          <div id="slot-item21" class="folderSlot"></div>
+          <div id="slot-item22" class="folderSlot"></div>
+          <div id="slot-item23" class="folderSlot"></div>
+          <div id="slot-item24" class="folderSlot"></div>
+        </div>
+
+        <div id="folder-widgets" class="folderGrid">
+          <div id="slot-widget-timer" class="folderSlot"></div>
+          <div id="slot-widget-scoreboard" class="folderSlot"></div>
+          <div id="slot-widget-hotspot-tool" class="folderSlot"></div>
+          <div id="slot-widget-text-tool" class="folderSlot"></div>
+          <div id="slot-widget-media-tool" class="folderSlot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="topPanels">
+      <div id="toolbar">
+        <button id="toggleSidebarBtn" class="toolBtn">☰ Hide Sidebar</button>
+        <button id="moveBtn" class="toolBtn active">✋ Move</button>
+        <button id="multiSelectBtn" class="toolBtn">☑ Multi-Select</button>
+        <button id="groupMoveBtn" class="toolBtn">⇄ Group Move</button>
+        <button id="spotlightBtn" class="toolBtn">🔦 Spotlight</button>
+        <button id="bluePenBtn" class="toolBtn">🖊️ Blue</button>
+        <button id="redPenBtn" class="toolBtn">🖊️ Red</button>
+        <button id="greenPenBtn" class="toolBtn">🖊️ Green</button>
+        <button id="blackPenBtn" class="toolBtn">🖊️ Black</button>
+        <button id="yellowPenBtn" class="toolBtn">🖊️ Yellow</button>
+        <button id="eraserBtn" class="toolBtn">🩹 Rubber</button>
+        <button id="clearBtn" class="toolBtn">🧽 Clear Ink</button>
+        <button id="resetBtn" class="toolBtn">↺ Reset Items</button>
+      </div>
+
+      <div id="utilityBar">
+        <div class="bgBox">
+          <div class="bgLabel">Image</div>
+          <button id="bg1Btn" class="miniBtn">1</button>
+          <button id="bg2Btn" class="miniBtn">2</button>
+          <button id="bg3Btn" class="miniBtn">3</button>
+        </div>
+
+        <div id="selectionStatus" class="statusPill">0 Selected</div>
+      </div>
+    </div>
+
+    <div id="workspaceHint"></div>
+    <div id="cloneBin">🗑 Clone Bin<br>Drop here to delete</div>
+
+    <div id="hotspotEditor">
+      <input id="hotspotTitle" type="text" placeholder="Hotspot title">
+      <textarea id="hotspotNote" placeholder="Write annotation here..."></textarea>
+      <div class="editorRow">
+        <button id="saveHotspotBtn" class="editorBtn">Save</button>
+        <button id="deleteHotspotBtn" class="editorBtn">Delete</button>
+      </div>
+    </div>
+
+    <div id="scaleControls">
+      <div class="scaleRow scaleRowTop">
+        <button id="scaleDownBtn" class="scaleBtn smallSymbol">−</button>
+        <div id="scaleLabel">100%</div>
+        <button id="scaleUpBtn" class="scaleBtn smallSymbol">＋</button>
+      </div>
+
+      <div class="scaleRow scaleRowRotate">
+        <button id="rotateLeftBtn" class="scaleBtn">Rotate Left</button>
+        <button id="rotateRightBtn" class="scaleBtn">Rotate Right</button>
+      </div>
+
+      <div class="scaleRow scaleRowMid">
+        <button id="bringForwardBtn" class="scaleBtn">Bring Forward</button>
+        <button id="sendBackwardBtn" class="scaleBtn">Send Backward</button>
+      </div>
+
+      <div class="scaleRow scaleRowLock">
+        <button id="lockBtn" class="scaleBtn">Lock Item</button>
+        <button id="unlockBtn" class="scaleBtn">Unlock Item</button>
+      </div>
+
+      <div class="scaleRow scaleRowBottom">
+        <button id="duplicateCloneBtn" class="scaleBtn">Duplicate Selected</button>
+        <button id="deleteCloneBtn" class="scaleBtn">Delete Selected</button>
+      </div>
+    </div>
+
+    <div id="widget-timer-master" class="widgetMaster" style="width: 220px; height: 76px;">
+      <div class="widgetHeader">Timer</div>
+    </div>
+
+    <div id="widget-scoreboard-master" class="widgetMaster" style="width: 220px; height: 76px;">
+      <div class="widgetHeader">Scoreboard</div>
+    </div>
+
+    <div id="widget-hotspot-tool-master" class="widgetMaster" style="width: 220px; height: 76px;">
+      <div class="widgetHeader">Hotspot Tool</div>
+    </div>
+
+    <div id="widget-text-tool-master" class="widgetMaster" style="width: 220px; height: 76px;">
+      <div class="widgetHeader">Text Box</div>
+    </div>
+
+    <div id="widget-media-tool-master" class="widgetMaster" style="width: 220px; height: 76px;">
+      <div class="widgetHeader">Add Media</div>
+    </div>
+
+    <img class="folderItem" id="item1" src="drag-item-1.png" alt="Draggable item 1" />
+    <img class="folderItem" id="item2" src="drag-item-2.png" alt="Draggable item 2" />
+    <img class="folderItem" id="item3" src="drag-item-3.png" alt="Draggable item 3" />
+    <img class="folderItem" id="item4" src="drag-item-4.png" alt="Draggable item 4" />
+    <img class="folderItem" id="item5" src="drag-item-5.png" alt="Draggable item 5" />
+    <img class="folderItem" id="item6" src="drag-item-6.png" alt="Draggable item 6" />
+    <img class="folderItem" id="item7" src="drag-item-7.png" alt="Draggable item 7" />
+    <img class="folderItem" id="item8" src="drag-item-8.png" alt="Draggable item 8" />
+    <img class="folderItem" id="item9" src="drag-item-9.png" alt="Draggable item 9" />
+    <img class="folderItem" id="item10" src="drag-item-10.png" alt="Draggable item 10" />
+    <img class="folderItem" id="item11" src="drag-item-11.png" alt="Draggable item 11" />
+    <img class="folderItem" id="item12" src="drag-item-12.png" alt="Draggable item 12" />
+    <img class="folderItem" id="item13" src="drag-item-13.png" alt="Draggable item 13" />
+    <img class="folderItem" id="item14" src="drag-item-14.png" alt="Draggable item 14" />
+    <img class="folderItem" id="item15" src="drag-item-15.png" alt="Draggable item 15" />
+    <img class="folderItem" id="item16" src="drag-item-16.png" alt="Draggable item 16" />
+    <img class="folderItem" id="item17" src="drag-item-17.png" alt="Draggable item 17" />
+    <img class="folderItem" id="item18" src="drag-item-18.png" alt="Draggable item 18" />
+    <img class="folderItem" id="item19" src="drag-item-19.png" alt="Draggable item 19" />
+    <img class="folderItem" id="item20" src="drag-item-20.png" alt="Draggable item 20" />
+    <img class="folderItem" id="item21" src="drag-item-21.png" alt="Draggable item 21" />
+    <img class="folderItem" id="item22" src="drag-item-22.png" alt="Draggable item 22" />
+    <img class="folderItem" id="item23" src="drag-item-23.png" alt="Draggable item 23" />
+    <img class="folderItem" id="item24" src="drag-item-24.png" alt="Draggable item 24" />
+  </div>
+
+  <script>
+    const stage = document.getElementById('stage');
+    const sidebar = document.getElementById('sidebar');
+    const topPanels = document.getElementById('topPanels');
+    const workspaceHint = document.getElementById('workspaceHint');
+    const spotlightOverlay = document.getElementById('spotlightOverlay');
+    const spotlightHole = document.getElementById('spotlightHole');
+
+    const resetBtn = document.getElementById('resetBtn');
+    const folderItems = document.querySelectorAll('.folderItem');
+    const cloneBin = document.getElementById('cloneBin');
+
+    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+    const spotlightBtn = document.getElementById('spotlightBtn');
+
+    const moveBtn = document.getElementById('moveBtn');
+    const multiSelectBtn = document.getElementById('multiSelectBtn');
+    const groupMoveBtn = document.getElementById('groupMoveBtn');
+    const bluePenBtn = document.getElementById('bluePenBtn');
+    const redPenBtn = document.getElementById('redPenBtn');
+    const greenPenBtn = document.getElementById('greenPenBtn');
+    const blackPenBtn = document.getElementById('blackPenBtn');
+    const yellowPenBtn = document.getElementById('yellowPenBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    const bg1Btn = document.getElementById('bg1Btn');
+    const bg2Btn = document.getElementById('bg2Btn');
+    const bg3Btn = document.getElementById('bg3Btn');
+
+    const selectionStatus = document.getElementById('selectionStatus');
+
+    const lessonResourcesBtn = document.getElementById('lessonResourcesBtn');
+    const earlyYearsBtn = document.getElementById('earlyYearsBtn');
+    const widgetsRootBtn = document.getElementById('widgetsRootBtn');
+    const earlyYearsWrap = document.getElementById('earlyYearsWrap');
+    const widgetsWrap = document.getElementById('widgetsWrap');
+    const earlyYearsFoldersWrap = document.getElementById('earlyYearsFoldersWrap');
+
+    const planetsBtn = document.getElementById('planetsBtn');
+    const infoCardsBtn = document.getElementById('infoCardsBtn');
+    const nameTagsBtn = document.getElementById('nameTagsBtn');
+    const widgetsFolderBtn = document.getElementById('widgetsFolderBtn');
+
+    const folderContentTitle = document.getElementById('folderContentTitle');
+    const folderContent = document.getElementById('folderContent');
+
+    const hotspotEditor = document.getElementById('hotspotEditor');
+    const hotspotTitle = document.getElementById('hotspotTitle');
+    const hotspotNote = document.getElementById('hotspotNote');
+    const saveHotspotBtn = document.getElementById('saveHotspotBtn');
+    const deleteHotspotBtn = document.getElementById('deleteHotspotBtn');
+
+    const canvas = document.getElementById('drawLayer');
+    const ctx = canvas.getContext('2d');
+
+    const scaleControls = document.getElementById('scaleControls');
+    const scaleDownBtn = document.getElementById('scaleDownBtn');
+    const scaleUpBtn = document.getElementById('scaleUpBtn');
+    const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn = document.getElementById('rotateRightBtn');
+    const bringForwardBtn = document.getElementById('bringForwardBtn');
+    const sendBackwardBtn = document.getElementById('sendBackwardBtn');
+    const duplicateCloneBtn = document.getElementById('duplicateCloneBtn');
+    const deleteCloneBtn = document.getElementById('deleteCloneBtn');
+    const lockBtn = document.getElementById('lockBtn');
+    const unlockBtn = document.getElementById('unlockBtn');
+    const scaleLabel = document.getElementById('scaleLabel');
+
+    const timerMaster = document.getElementById('widget-timer-master');
+    const scoreboardMaster = document.getElementById('widget-scoreboard-master');
+    const hotspotToolMaster = document.getElementById('widget-hotspot-tool-master');
+    const textToolMaster = document.getElementById('widget-text-tool-master');
+    const mediaToolMaster = document.getElementById('widget-media-tool-master');
+
+    const DRAW_STORAGE_KEY = 'immersive_draw_layer';
+    let mode = 'move';
+    let currentColor = '#1e5eff';
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let activeFolder = 'planets';
+    let cloneCounter = 0;
+
+    let lessonResourcesOpen = false;
+    let earlyYearsOpen = false;
+    let widgetsOpen = false;
+
+    let selectedClone = null;
+    let cloneZCounter = 100;
+
+    let multiSelectMode = false;
+    let groupMoveMode = false;
+    let selectedClones = [];
+
+    let addHotspotMode = false;
+    let selectedHotspot = null;
+    let hotspotCounter = 0;
+
+    let sidebarCollapsed = false;
+    let spotlightMode = false;
+
+    const folderGroups = {
+      planets: ['item1','item2','item3','item4','item5','item6','item7','item8'],
+      infocards: ['item9','item10','item11','item12','item13','item14','item15','item16'],
+      nametags: ['item17','item18','item19','item20','item21','item22','item23','item24']
+    };
+
+    const itemFolderMap = {};
+    Object.entries(folderGroups).forEach(([folder, items]) => {
+      items.forEach(id => itemFolderMap[id] = folder);
+    });
+
+    function formatTime(totalSeconds) {
+      const mins = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const secs = String(totalSeconds % 60).padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function updateSidebarState() {
+      sidebar.classList.toggle('collapsed', sidebarCollapsed);
+      topPanels.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+      workspaceHint.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+      toggleSidebarBtn.textContent = sidebarCollapsed ? '☰ Show Sidebar' : '☰ Hide Sidebar';
+      resizeCanvas();
+    }
+
+    function updateSpotlight() {
+      if (!spotlightMode || !selectedClone) {
+        spotlightOverlay.style.display = 'none';
+        spotlightBtn.classList.remove('active');
+        return;
+      }
+
+      const stageRect = stage.getBoundingClientRect();
+      const rect = selectedClone.getBoundingClientRect();
+      spotlightOverlay.style.display = 'block';
+      spotlightBtn.classList.add('active');
+
+      const padding = 24;
+      spotlightHole.style.left = (rect.left - stageRect.left - padding) + 'px';
+      spotlightHole.style.top = (rect.top - stageRect.top - padding) + 'px';
+      spotlightHole.style.width = (rect.width + padding * 2) + 'px';
+      spotlightHole.style.height = (rect.height + padding * 2) + 'px';
+    }
+
+    function setStageBackgroundImage(file) {
+      stage.style.backgroundImage =
+        `radial-gradient(circle at 50% 25%, rgba(125,211,252,0.08), transparent 28%),` +
+        `radial-gradient(circle at 80% 80%, rgba(255,255,255,0.05), transparent 25%),` +
+        `url('${file}'), linear-gradient(180deg, #08111b 0%, #05090f 100%)`;
+    }
+
+    function setActiveButton(activeButton) {
+      [moveBtn, bluePenBtn, redPenBtn, greenPenBtn, blackPenBtn, yellowPenBtn, eraserBtn]
+        .forEach(btn => btn.classList.remove('active'));
+      activeButton.classList.add('active');
+    }
+
+    function updateSelectionStatus() {
+      selectionStatus.textContent = `${selectedClones.length} Selected`;
+    }
+
+    function clearMultiSelection() {
+      selectedClones.forEach(clone => clone.classList.remove('multiSelected'));
+      selectedClones = [];
+      updateSelectionStatus();
+    }
+
+    function toggleCloneInMultiSelection(clone) {
+      const index = selectedClones.indexOf(clone);
+      if (index >= 0) {
+        selectedClones.splice(index, 1);
+        clone.classList.remove('multiSelected');
+      } else {
+        selectedClones.push(clone);
+        clone.classList.add('multiSelected');
+      }
+      updateSelectionStatus();
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      deselectClone();
+      hideHotspotEditor();
+
+      if (mode === 'move') {
+        canvas.style.pointerEvents = 'none';
+        setActiveButton(moveBtn);
+      } else {
+        canvas.style.pointerEvents = 'auto';
+
+        if (mode === 'blue') {
+          currentColor = '#1e5eff';
+          setActiveButton(bluePenBtn);
+        } else if (mode === 'red') {
+          currentColor = '#e21b1b';
+          setActiveButton(redPenBtn);
+        } else if (mode === 'green') {
+          currentColor = '#1aa34a';
+          setActiveButton(greenPenBtn);
+        } else if (mode === 'black') {
+          currentColor = '#111111';
+          setActiveButton(blackPenBtn);
+        } else if (mode === 'yellow') {
+          currentColor = '#ffd400';
+          setActiveButton(yellowPenBtn);
+        } else if (mode === 'eraser') {
+          setActiveButton(eraserBtn);
+        }
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = stage.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      restoreDrawing();
+      updateScaleControlsPosition();
+      updateHotspotEditorPosition();
+      updateSpotlight();
+      layoutFolderItems();
+      layoutWidgetMasters();
+    }
+
+    function saveDrawing() {
+      try {
+        localStorage.setItem(DRAW_STORAGE_KEY, canvas.toDataURL('image/png'));
+      } catch (e) {}
+    }
+
+    function restoreDrawing() {
+      const saved = localStorage.getItem(DRAW_STORAGE_KEY);
+      if (!saved) return;
+      const img = new Image();
+      img.onload = function() {
+        const rect = stage.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = saved;
+    }
+
+    function clearDrawing() {
+      const rect = stage.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      localStorage.removeItem(DRAW_STORAGE_KEY);
+    }
+
+    function getCanvasPoint(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    canvas.addEventListener('pointerdown', function(e) {
+      if (mode === 'move') return;
+      isDrawing = true;
+      canvas.setPointerCapture(e.pointerId);
+      const point = getCanvasPoint(e);
+      lastX = point.x;
+      lastY = point.y;
+    });
+
+    canvas.addEventListener('pointermove', function(e) {
+      if (!isDrawing || mode === 'move') return;
+      const point = getCanvasPoint(e);
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(point.x, point.y);
+
+      if (mode === 'eraser') {
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = 24;
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 8;
+        ctx.stroke();
+      }
+
+      lastX = point.x;
+      lastY = point.y;
+    });
+
+    function endDrawing() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      saveDrawing();
+    }
+
+    canvas.addEventListener('pointerup', endDrawing);
+    canvas.addEventListener('pointercancel', endDrawing);
+    canvas.addEventListener('pointerleave', endDrawing);
+
+    toggleSidebarBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      sidebarCollapsed = !sidebarCollapsed;
+      updateSidebarState();
+    });
+
+    spotlightBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      spotlightMode = !spotlightMode;
+      updateSpotlight();
+    });
+
+    moveBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('move'); });
+    bluePenBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('blue'); });
+    redPenBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('red'); });
+    greenPenBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('green'); });
+    blackPenBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('black'); });
+    yellowPenBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('yellow'); });
+    eraserBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); addHotspotMode = false; setMode('eraser'); });
+    clearBtn.addEventListener('pointerdown', function(e) { e.preventDefault(); clearDrawing(); });
+
+    multiSelectBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      multiSelectMode = !multiSelectMode;
+      multiSelectBtn.classList.toggle('active', multiSelectMode);
+      if (!multiSelectMode) {
+        groupMoveMode = false;
+        groupMoveBtn.classList.remove('active');
+        clearMultiSelection();
+      }
+    });
+
+    groupMoveBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      if (!multiSelectMode || selectedClones.length < 2) return;
+      groupMoveMode = !groupMoveMode;
+      groupMoveBtn.classList.toggle('active', groupMoveMode);
+    });
+
+    bg1Btn.addEventListener('pointerdown', (e) => { e.preventDefault(); setStageBackgroundImage('background.jpg'); });
+    bg2Btn.addEventListener('pointerdown', (e) => { e.preventDefault(); setStageBackgroundImage('background-2.jpg'); });
+    bg3Btn.addEventListener('pointerdown', (e) => { e.preventDefault(); setStageBackgroundImage('background-3.jpg'); });
+
+    function updateFolderContentVisibility() {
+      const showContent = lessonResourcesOpen || widgetsOpen;
+      folderContentTitle.style.display = showContent ? 'block' : 'none';
+      folderContent.style.display = showContent ? 'block' : 'none';
+      layoutFolderItems();
+      layoutWidgetMasters();
+    }
+
+    lessonResourcesBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      lessonResourcesOpen = !lessonResourcesOpen;
+      earlyYearsWrap.style.display = lessonResourcesOpen ? 'block' : 'none';
+      if (!lessonResourcesOpen) {
+        earlyYearsOpen = false;
+        earlyYearsFoldersWrap.style.display = 'none';
+      }
+      updateFolderContentVisibility();
+    });
+
+    earlyYearsBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      earlyYearsOpen = !earlyYearsOpen;
+      earlyYearsFoldersWrap.style.display = earlyYearsOpen ? 'block' : 'none';
+      updateFolderContentVisibility();
+    });
+
+    widgetsRootBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      widgetsOpen = !widgetsOpen;
+      widgetsWrap.style.display = widgetsOpen ? 'block' : 'none';
+      updateFolderContentVisibility();
+    });
+
+    function getSlotPosition(itemId) {
+      const slot = document.getElementById('slot-' + itemId);
+      const stageRect = stage.getBoundingClientRect();
+      const slotRect = slot.getBoundingClientRect();
+      const item = document.getElementById(itemId);
+      const x = slotRect.left - stageRect.left + (slotRect.width - item.offsetWidth) / 2;
+      const y = slotRect.top - stageRect.top + (slotRect.height - item.offsetHeight) / 2;
+      return { x, y };
+    }
+
+    function getWidgetSlotPosition(slotId, element) {
+      const slot = document.getElementById(slotId);
+      const stageRect = stage.getBoundingClientRect();
+      const slotRect = slot.getBoundingClientRect();
+      const x = slotRect.left - stageRect.left + (slotRect.width - element.offsetWidth) / 2;
+      const y = slotRect.top - stageRect.top + (slotRect.height - element.offsetHeight) / 2;
+      return { x, y };
+    }
+
+    function layoutFolderItems() {
+      folderItems.forEach(item => {
+        const shouldShow = itemFolderMap[item.id] === activeFolder && lessonResourcesOpen && earlyYearsOpen;
+        item.style.display = shouldShow ? 'block' : 'none';
+        if (shouldShow) {
+          const pos = getSlotPosition(item.id);
+          item.style.left = pos.x + 'px';
+          item.style.top = pos.y + 'px';
+        }
+      });
+    }
+
+    function layoutWidgetMasters() {
+      const showWidgets = widgetsOpen && activeFolder === 'widgets';
+      timerMaster.style.display = showWidgets ? 'block' : 'none';
+      scoreboardMaster.style.display = showWidgets ? 'block' : 'none';
+      hotspotToolMaster.style.display = showWidgets ? 'block' : 'none';
+      textToolMaster.style.display = showWidgets ? 'block' : 'none';
+      mediaToolMaster.style.display = showWidgets ? 'block' : 'none';
+
+      if (showWidgets) {
+        const tPos = getWidgetSlotPosition('slot-widget-timer', timerMaster);
+        timerMaster.style.left = tPos.x + 'px';
+        timerMaster.style.top = tPos.y + 'px';
+
+        const sPos = getWidgetSlotPosition('slot-widget-scoreboard', scoreboardMaster);
+        scoreboardMaster.style.left = sPos.x + 'px';
+        scoreboardMaster.style.top = sPos.y + 'px';
+
+        const hPos = getWidgetSlotPosition('slot-widget-hotspot-tool', hotspotToolMaster);
+        hotspotToolMaster.style.left = hPos.x + 'px';
+        hotspotToolMaster.style.top = hPos.y + 'px';
+
+        const xPos = getWidgetSlotPosition('slot-widget-text-tool', textToolMaster);
+        textToolMaster.style.left = xPos.x + 'px';
+        textToolMaster.style.top = xPos.y + 'px';
+
+        const mPos = getWidgetSlotPosition('slot-widget-media-tool', mediaToolMaster);
+        mediaToolMaster.style.left = mPos.x + 'px';
+        mediaToolMaster.style.top = mPos.y + 'px';
+      }
+    }
+
+    function showFolder(folderName) {
+      activeFolder = folderName;
+      document.querySelectorAll('.folderGrid').forEach(grid => grid.classList.remove('active'));
+      document.getElementById('folder-' + folderName).classList.add('active');
+      [planetsBtn, infoCardsBtn, nameTagsBtn, widgetsFolderBtn].forEach(btn => btn.classList.remove('active'));
+
+      if (folderName === 'planets') {
+        planetsBtn.classList.add('active');
+        folderContentTitle.textContent = 'Planets';
+      } else if (folderName === 'infocards') {
+        infoCardsBtn.classList.add('active');
+        folderContentTitle.textContent = 'InfoCards';
+      } else if (folderName === 'nametags') {
+        nameTagsBtn.classList.add('active');
+        folderContentTitle.textContent = 'NameTags';
+      } else if (folderName === 'widgets') {
+        widgetsFolderBtn.classList.add('active');
+        folderContentTitle.textContent = 'Widgets';
+      }
+
+      layoutFolderItems();
+      layoutWidgetMasters();
+    }
+
+    planetsBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); showFolder('planets'); });
+    infoCardsBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); showFolder('infocards'); });
+    nameTagsBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); showFolder('nametags'); });
+    widgetsFolderBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); showFolder('widgets'); });
+
+    function clampPosition(item, x, y) {
+      const stageRect = stage.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      const maxX = stageRect.width - itemRect.width;
+      const maxY = stageRect.height - itemRect.height;
+      return {
+        x: Math.max(0, Math.min(x, maxX)),
+        y: Math.max(0, Math.min(y, maxY))
+      };
+    }
+
+    function applyCloneTransform(clone) {
+      const scale = parseFloat(clone.dataset.scale || '1');
+      const rotation = parseFloat(clone.dataset.rotation || '0');
+      clone.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    }
+
+    function updateScaleControlsPosition() {
+      if (!selectedClone) {
+        scaleControls.style.display = 'none';
+        updateSpotlight();
+        return;
+      }
+
+      const rect = selectedClone.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      let left = rect.left - stageRect.left;
+      let top = rect.top - stageRect.top - 235;
+
+      if (top < 10) top = rect.bottom - stageRect.top + 10;
+      left = Math.max(sidebarCollapsed ? 20 : 340, Math.min(left, stageRect.width - 400));
+
+      scaleControls.style.left = left + 'px';
+      scaleControls.style.top = top + 'px';
+      scaleControls.style.display = 'block';
+      scaleLabel.textContent = Math.round((parseFloat(selectedClone.dataset.scale || '1')) * 100) + '%';
+      updateSpotlight();
+    }
+
+    function deselectClone() {
+      if (selectedClone) selectedClone.classList.remove('selected');
+      selectedClone = null;
+      scaleControls.style.display = 'none';
+      updateSpotlight();
+    }
+
+    function selectClone(clone) {
+      if (selectedClone && selectedClone !== clone) selectedClone.classList.remove('selected');
+      selectedClone = clone;
+      clone.classList.add('selected');
+      clone.style.zIndex = cloneZCounter++;
+      updateScaleControlsPosition();
+    }
+
+    function isOverBin(item) {
+      const itemRect = item.getBoundingClientRect();
+      const binRect = cloneBin.getBoundingClientRect();
+      return !(
+        itemRect.right < binRect.left ||
+        itemRect.left > binRect.right ||
+        itemRect.bottom < binRect.top ||
+        itemRect.top > binRect.bottom
+      );
+    }
+
+    function startDraggingElement(item, e, offsetX, offsetY) {
+      let dragging = true;
+      let startPositions = [];
+
+      if (groupMoveMode && selectedClones.length > 1 && selectedClones.includes(item)) {
+        startPositions = selectedClones.map(clone => ({
+          clone,
+          left: parseFloat(clone.style.left || '0'),
+          top: parseFloat(clone.style.top || '0')
+        }));
+      }
+
+      if (item.classList.contains('stageClone') || item.classList.contains('widgetClone')) {
+        selectClone(item);
+      }
+
+      item.style.zIndex = cloneZCounter++;
+      item.setPointerCapture(e.pointerId);
+
+      const stageRect = stage.getBoundingClientRect();
+      const startPointerX = e.clientX - stageRect.left;
+      const startPointerY = e.clientY - stageRect.top;
+
+      function onMove(ev) {
+        if (!dragging || mode !== 'move') return;
+
+        const currentPointerX = ev.clientX - stageRect.left;
+        const currentPointerY = ev.clientY - stageRect.top;
+
+        if (groupMoveMode && startPositions.length > 0) {
+          const dx = currentPointerX - startPointerX;
+          const dy = currentPointerY - startPointerY;
+
+          startPositions.forEach(({ clone, left, top }) => {
+            if (clone.dataset.locked === 'true') return;
+            const clamped = clampPosition(clone, left + dx, top + dy);
+            clone.style.left = clamped.x + 'px';
+            clone.style.top = clamped.y + 'px';
+          });
+        } else {
+          const rawX = currentPointerX - offsetX;
+          const rawY = currentPointerY - offsetY;
+          const clamped = clampPosition(item, rawX, rawY);
+          item.style.left = clamped.x + 'px';
+          item.style.top = clamped.y + 'px';
+        }
+
+        if (item.classList.contains('stageClone') || item.classList.contains('widgetClone')) {
+          selectClone(item);
+          updateScaleControlsPosition();
+        }
+
+        cloneBin.classList.toggle('active', isOverBin(item));
+      }
+
+      function onEnd() {
+        if (!dragging) return;
+        dragging = false;
+
+        if (groupMoveMode && startPositions.length > 0) {
+          startPositions.forEach(({ clone }) => {
+            if (isOverBin(clone)) clone.remove();
+          });
+        } else {
+          if (isOverBin(item)) {
+            const removingSelected = item === selectedClone;
+            item.remove();
+            if (removingSelected) deselectClone();
+          }
+        }
+
+        cloneBin.classList.remove('active');
+
+        if ((item.classList.contains('stageClone') || item.classList.contains('widgetClone')) && document.body.contains(item)) {
+          selectClone(item);
+          updateScaleControlsPosition();
+        }
+
+        selectedClones = selectedClones.filter(clone => document.body.contains(clone));
+        updateSelectionStatus();
+
+        item.removeEventListener('pointermove', onMove);
+        item.removeEventListener('pointerup', onEnd);
+        item.removeEventListener('pointercancel', onEnd);
+      }
+
+      item.addEventListener('pointermove', onMove);
+      item.addEventListener('pointerup', onEnd);
+      item.addEventListener('pointercancel', onEnd);
+    }
+
+    function wireCloneDrag(clone) {
+      clone.addEventListener('pointerdown', function(e) {
+        if (mode !== 'move') return;
+        if (clone.dataset.locked === 'true') return;
+
+        if (multiSelectMode) {
+          toggleCloneInMultiSelection(clone);
+          selectClone(clone);
+          e.stopPropagation();
+          return;
+        }
+
+        const rect = clone.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+
+        selectClone(clone);
+        startDraggingElement(clone, e, offsetX, offsetY);
+      });
+
+      clone.addEventListener('click', function(e) {
+        if (mode !== 'move') return;
+        e.stopPropagation();
+        if (!multiSelectMode) selectClone(clone);
+      });
+    }
+
+    function makeTimerWidgetHTML(displayValue = '00:00') {
+      const widget = document.createElement('div');
+      widget.className = 'widgetClone';
+      widget.style.width = '250px';
+      widget.style.height = '170px';
+      widget.dataset.widgetType = 'timer';
+      widget.dataset.locked = 'false';
+      widget.dataset.scale = '1';
+      widget.dataset.rotation = '0';
+      widget.dataset.timerSeconds = '0';
+      widget.innerHTML = `
+        <div class="widgetHeader">Timer</div>
+        <div class="widgetBody">
+          <div class="widgetValue timer-display">${displayValue}</div>
+          <button class="widgetMiniBtn timer-start">▶</button>
+          <button class="widgetMiniBtn timer-pause">⏸</button>
+          <button class="widgetMiniBtn timer-reset">↺</button>
+        </div>
+      `;
+      return widget;
+    }
+
+    function makeScoreboardWidgetHTML(a = 0, b = 0) {
+      const widget = document.createElement('div');
+      widget.className = 'widgetClone';
+      widget.style.width = '320px';
+      widget.style.height = '205px';
+      widget.dataset.widgetType = 'scoreboard';
+      widget.dataset.locked = 'false';
+      widget.dataset.scale = '1';
+      widget.dataset.rotation = '0';
+      widget.innerHTML = `
+        <div class="widgetHeader">Scoreboard</div>
+        <div class="widgetBody" style="justify-content: space-between;">
+          <div class="widgetTeamCol">
+            <div class="widgetTeamTitle">Team A</div>
+            <div class="widgetValue score-a">${a}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="widgetMiniBtn score-a-minus">−</button>
+              <button class="widgetMiniBtn score-a-plus">+</button>
+            </div>
+          </div>
+          <div class="widgetTeamCol">
+            <div class="widgetTeamTitle">Team B</div>
+            <div class="widgetValue score-b">${b}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="widgetMiniBtn score-b-minus">−</button>
+              <button class="widgetMiniBtn score-b-plus">+</button>
+            </div>
+          </div>
+        </div>
+      `;
+      return widget;
+    }
+
+    function makeHotspotToolWidgetHTML() {
+      const widget = document.createElement('div');
+      widget.className = 'widgetClone';
+      widget.style.width = '240px';
+      widget.style.height = '120px';
+      widget.dataset.widgetType = 'hotspot-tool';
+      widget.dataset.locked = 'false';
+      widget.dataset.scale = '1';
+      widget.dataset.rotation = '0';
+      widget.innerHTML = `
+        <div class="widgetHeader">Hotspot Tool</div>
+        <div class="widgetBody">
+          <div class="widgetValue">Tap widget to start</div>
+        </div>
+      `;
+      return widget;
+    }
+
+    function makeTextToolWidgetHTML() {
+      const widget = document.createElement('div');
+      widget.className = 'widgetClone';
+      widget.style.width = '360px';
+      widget.style.height = '240px';
+      widget.dataset.widgetType = 'text-tool';
+      widget.dataset.locked = 'false';
+      widget.dataset.scale = '1';
+      widget.dataset.rotation = '0';
+      widget.innerHTML = `
+        <div class="widgetHeader">Text Box</div>
+        <div class="widgetBody" style="padding:12px;">
+          <textarea class="textBoxArea" placeholder="Type here..."></textarea>
+        </div>
+      `;
+      return widget;
+    }
+
+    function makeMediaToolWidgetHTML() {
+      const widget = document.createElement('div');
+      widget.className = 'widgetClone';
+      widget.style.width = '460px';
+      widget.style.height = '430px';
+      widget.dataset.widgetType = 'media-tool';
+      widget.dataset.locked = 'false';
+      widget.dataset.scale = '1';
+      widget.dataset.rotation = '0';
+      widget.innerHTML = `
+        <div class="widgetHeader">Add Media</div>
+        <div class="widgetBody" style="padding:12px; align-items:stretch; flex-direction:column;">
+          <input class="mediaUrlInput" type="text" placeholder="Paste YouTube, Vimeo, Drive, SharePoint, direct video, or embeddable URL">
+          <input class="mediaPosterInput" type="text" placeholder="Optional poster / thumbnail image URL">
+          <button class="widgetActionBtn media-load-btn">Load Media</button>
+          <div class="mediaFrameWrap media-output-wrap">
+            <div class="mediaFallback">
+              <div class="mediaFallbackText">This URL could not be embedded here.</div>
+              <a class="mediaOpenLink" href="#" target="_blank">Open Link</a>
+            </div>
+            <iframe class="mediaFrame" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+            <video class="mediaVideo" controls playsinline>
+              <source class="mediaVideoSource" src="">
+              Your browser does not support embedded video.
+            </video>
+          </div>
+        </div>
+      `;
+      return widget;
+    }
+
+    function safeUrl(url) {
+      try {
+        return new URL(url).toString();
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function isDirectVideo(url) {
+      return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+    }
+
+    function getYouTubeEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+
+        if (parsed.hostname.includes('youtu.be')) {
+          const id = parsed.pathname.replace('/', '').trim();
+          if (id) return `https://www.youtube.com/embed/${id}`;
+        }
+
+        if (parsed.hostname.includes('youtube.com')) {
+          if (parsed.pathname === '/watch') {
+            const id = parsed.searchParams.get('v');
+            if (id) return `https://www.youtube.com/embed/${id}`;
+          }
+
+          if (parsed.pathname.startsWith('/embed/')) {
+            return url;
+          }
+
+          if (parsed.pathname.startsWith('/shorts/')) {
+            const id = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+            if (id) return `https://www.youtube.com/embed/${id}`;
+          }
+        }
+      } catch (err) {}
+
+      return null;
+    }
+
+    function getVimeoEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+
+        if (parsed.hostname.includes('vimeo.com') && !parsed.hostname.includes('player.vimeo.com')) {
+          const parts = parsed.pathname.split('/').filter(Boolean);
+          const id = parts[parts.length - 1];
+          if (id && /^\d+$/.test(id)) {
+            return `https://player.vimeo.com/video/${id}`;
+          }
+        }
+
+        if (parsed.hostname.includes('player.vimeo.com')) {
+          return url;
+        }
+      } catch (err) {}
+
+      return null;
+    }
+
+    function getGoogleDriveEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+        if (!parsed.hostname.includes('drive.google.com')) return null;
+
+        const fileMatch = parsed.pathname.match(/\/file\/d\/([^/]+)/);
+        if (fileMatch && fileMatch[1]) {
+          return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
+        }
+
+        const id = parsed.searchParams.get('id');
+        if (id) {
+          return `https://drive.google.com/file/d/${id}/preview`;
+        }
+      } catch (err) {}
+
+      return null;
+    }
+
+    function getSharePointOrOneDriveEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+
+        if (!(host.includes('sharepoint.com') || host.includes('onedrive.live.com') || host.includes('1drv.ms'))) {
+          return null;
+        }
+
+        if (host.includes('onedrive.live.com')) {
+          const resid = parsed.searchParams.get('resid');
+          const authkey = parsed.searchParams.get('authkey');
+          if (resid) {
+            let embed = `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}`;
+            if (authkey) embed += `&authkey=${encodeURIComponent(authkey)}`;
+            return embed;
+          }
+        }
+
+        if (host.includes('sharepoint.com')) {
+          if (parsed.searchParams.get('embed') === '1') {
+            return url;
+          }
+          parsed.searchParams.set('embed', '1');
+          return parsed.toString();
+        }
+
+        if (host.includes('1drv.ms')) {
+          return url;
+        }
+      } catch (err) {}
+
+      return null;
+    }
+
+    function wireWidgetInternalControls(widget) {
+      const timerStart = widget.querySelector('.timer-start');
+      const timerPause = widget.querySelector('.timer-pause');
+      const timerReset = widget.querySelector('.timer-reset');
+      const timerDisplay = widget.querySelector('.timer-display');
+
+      if (timerStart && timerPause && timerReset && timerDisplay) {
+        let interval = null;
+
+        timerStart.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          if (interval) return;
+          interval = setInterval(() => {
+            let secs = parseInt(widget.dataset.timerSeconds || '0', 10);
+            secs += 1;
+            widget.dataset.timerSeconds = String(secs);
+            timerDisplay.textContent = formatTime(secs);
+          }, 1000);
+        });
+
+        timerPause.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          clearInterval(interval);
+          interval = null;
+        });
+
+        timerReset.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          clearInterval(interval);
+          interval = null;
+          widget.dataset.timerSeconds = '0';
+          timerDisplay.textContent = '00:00';
+        });
+      }
+
+      const scoreAMinus = widget.querySelector('.score-a-minus');
+      const scoreAPlus = widget.querySelector('.score-a-plus');
+      const scoreBMinus = widget.querySelector('.score-b-minus');
+      const scoreBPlus = widget.querySelector('.score-b-plus');
+      const scoreA = widget.querySelector('.score-a');
+      const scoreB = widget.querySelector('.score-b');
+
+      if (scoreAMinus && scoreAPlus && scoreBMinus && scoreBPlus && scoreA && scoreB) {
+        scoreAPlus.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          scoreA.textContent = String(parseInt(scoreA.textContent, 10) + 1);
+        });
+        scoreAMinus.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          scoreA.textContent = String(Math.max(0, parseInt(scoreA.textContent, 10) - 1));
+        });
+        scoreBPlus.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          scoreB.textContent = String(parseInt(scoreB.textContent, 10) + 1);
+        });
+        scoreBMinus.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          scoreB.textContent = String(Math.max(0, parseInt(scoreB.textContent, 10) - 1));
+        });
+      }
+
+      const mediaLoadBtn = widget.querySelector('.media-load-btn');
+      const mediaInput = widget.querySelector('.mediaUrlInput');
+      const mediaPosterInput = widget.querySelector('.mediaPosterInput');
+      const mediaFrame = widget.querySelector('.mediaFrame');
+      const mediaVideo = widget.querySelector('.mediaVideo');
+      const mediaVideoSource = widget.querySelector('.mediaVideoSource');
+      const mediaFallback = widget.querySelector('.mediaFallback');
+      const mediaFallbackText = widget.querySelector('.mediaFallbackText');
+      const mediaOpenLink = widget.querySelector('.mediaOpenLink');
+
+      function resetMediaDisplay() {
+        if (mediaFrame) {
+          mediaFrame.style.display = 'none';
+          mediaFrame.src = '';
+        }
+        if (mediaVideo) {
+          mediaVideo.style.display = 'none';
+          mediaVideo.pause();
+          mediaVideo.removeAttribute('src');
+          mediaVideo.removeAttribute('poster');
+        }
+        if (mediaVideoSource) {
+          mediaVideoSource.src = '';
+        }
+        if (mediaFallback) {
+          mediaFallback.style.display = 'none';
+        }
+      }
+
+      function showFallback(url, message) {
+        resetMediaDisplay();
+        if (mediaFallback) {
+          mediaFallback.style.display = 'flex';
+        }
+        if (mediaFallbackText) {
+          mediaFallbackText.textContent = message || 'This URL could not be embedded here.';
+        }
+        if (mediaOpenLink) {
+          mediaOpenLink.href = url || '#';
+        }
+      }
+
+      function loadIframe(url) {
+        resetMediaDisplay();
+        mediaFrame.style.display = 'block';
+        mediaFrame.src = url;
+      }
+
+      function loadDirectVideo(url, posterUrl) {
+        resetMediaDisplay();
+        mediaVideo.style.display = 'block';
+        mediaVideoSource.src = url;
+        if (posterUrl) {
+          mediaVideo.setAttribute('poster', posterUrl);
+        }
+        mediaVideo.load();
+      }
+
+      if (mediaLoadBtn && mediaInput) {
+        mediaLoadBtn.addEventListener('pointerdown', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+
+          const rawUrl = mediaInput.value.trim();
+          const posterUrl = mediaPosterInput ? mediaPosterInput.value.trim() : '';
+
+          if (!rawUrl) return;
+
+          const youtubeEmbed = getYouTubeEmbedUrl(rawUrl);
+          if (youtubeEmbed) {
+            loadIframe(youtubeEmbed);
+            return;
+          }
+
+          const vimeoEmbed = getVimeoEmbedUrl(rawUrl);
+          if (vimeoEmbed) {
+            loadIframe(vimeoEmbed);
+            return;
+          }
+
+          const driveEmbed = getGoogleDriveEmbedUrl(rawUrl);
+          if (driveEmbed) {
+            loadIframe(driveEmbed);
+            return;
+          }
+
+          const msEmbed = getSharePointOrOneDriveEmbedUrl(rawUrl);
+          if (msEmbed) {
+            loadIframe(msEmbed);
+            return;
+          }
+
+          if (isDirectVideo(rawUrl)) {
+            loadDirectVideo(rawUrl, posterUrl);
+            return;
+          }
+
+          const validated = safeUrl(rawUrl);
+          if (validated) {
+            loadIframe(validated);
+            return;
+          }
+
+          showFallback(rawUrl, 'That does not look like a valid URL.');
+        });
+      }
+    }
+
+    function wireWidgetCloneDrag(widget) {
+      widget.addEventListener('pointerdown', function(e) {
+        if (mode !== 'move') return;
+
+        const clickedInternalButton = e.target.closest('.widgetMiniBtn, .widgetActionBtn, .mediaUrlInput, .mediaPosterInput, .textBoxArea');
+        if (clickedInternalButton) {
+          return;
+        }
+        if (widget.dataset.locked === 'true') return;
+
+        if (widget.dataset.widgetType === 'hotspot-tool') {
+          addHotspotMode = true;
+        }
+
+        if (multiSelectMode) {
+          toggleCloneInMultiSelection(widget);
+          selectClone(widget);
+          e.stopPropagation();
+          return;
+        }
+
+        const rect = widget.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+
+        selectClone(widget);
+        startDraggingElement(widget, e, offsetX, offsetY);
+      });
+
+      widget.addEventListener('click', function(e) {
+        if (mode !== 'move') return;
+        if (e.target.closest('.mediaUrlInput, .mediaPosterInput, .textBoxArea')) return;
+        e.stopPropagation();
+        if (!multiSelectMode) selectClone(widget);
+
+        if (widget.dataset.widgetType === 'hotspot-tool') {
+          addHotspotMode = true;
+        }
+      });
+    }
+
+    function createWidgetClone(type, e, sourceElement) {
+      let widget;
+
+      if (type === 'timer') {
+        widget = makeTimerWidgetHTML('00:00');
+      } else if (type === 'scoreboard') {
+        widget = makeScoreboardWidgetHTML(0, 0);
+      } else if (type === 'hotspot-tool') {
+        widget = makeHotspotToolWidgetHTML();
+      } else if (type === 'text-tool') {
+        widget = makeTextToolWidgetHTML();
+      } else if (type === 'media-tool') {
+        widget = makeMediaToolWidgetHTML();
+      } else {
+        return;
+      }
+
+      cloneCounter += 1;
+      widget.id = type + '-clone-' + cloneCounter;
+      widget.style.zIndex = cloneZCounter++;
+
+      const sourceRect = sourceElement.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      widget.style.left = (sourceRect.left - stageRect.left) + 'px';
+      widget.style.top = (sourceRect.top - stageRect.top) + 'px';
+
+      stage.appendChild(widget);
+      wireWidgetInternalControls(widget);
+      wireWidgetCloneDrag(widget);
+      applyCloneTransform(widget);
+
+      const offsetX = e.clientX - sourceRect.left;
+      const offsetY = e.clientY - sourceRect.top;
+
+      selectClone(widget);
+      startDraggingElement(widget, e, offsetX, offsetY);
+    }
+
+    timerMaster.addEventListener('pointerdown', function(e) {
+      if (mode !== 'move') return;
+      if (!(widgetsOpen && activeFolder === 'widgets')) return;
+      createWidgetClone('timer', e, timerMaster);
+    });
+
+    scoreboardMaster.addEventListener('pointerdown', function(e) {
+      if (mode !== 'move') return;
+      if (!(widgetsOpen && activeFolder === 'widgets')) return;
+      createWidgetClone('scoreboard', e, scoreboardMaster);
+    });
+
+    hotspotToolMaster.addEventListener('pointerdown', function(e) {
+      if (mode !== 'move') return;
+      if (!(widgetsOpen && activeFolder === 'widgets')) return;
+      createWidgetClone('hotspot-tool', e, hotspotToolMaster);
+    });
+
+    textToolMaster.addEventListener('pointerdown', function(e) {
+      if (mode !== 'move') return;
+      if (!(widgetsOpen && activeFolder === 'widgets')) return;
+      createWidgetClone('text-tool', e, textToolMaster);
+    });
+
+    mediaToolMaster.addEventListener('pointerdown', function(e) {
+      if (mode !== 'move') return;
+      if (!(widgetsOpen && activeFolder === 'widgets')) return;
+      createWidgetClone('media-tool', e, mediaToolMaster);
+    });
+
+    function createCloneFromOriginal(original, e) {
+      cloneCounter += 1;
+      const clone = original.cloneNode(true);
+      clone.id = original.id + '-clone-' + cloneCounter;
+      clone.classList.remove('folderItem');
+      clone.classList.add('stageClone');
+      clone.dataset.scale = '1';
+      clone.dataset.rotation = '0';
+      clone.dataset.locked = 'false';
+      clone.style.zIndex = cloneZCounter++;
+
+      const originalRect = original.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      clone.style.left = (originalRect.left - stageRect.left) + 'px';
+      clone.style.top = (originalRect.top - stageRect.top) + 'px';
+      clone.style.width = originalRect.width + 'px';
+
+      applyCloneTransform(clone);
+      stage.appendChild(clone);
+
+      const offsetX = e.clientX - originalRect.left;
+      const offsetY = e.clientY - originalRect.top;
+
+      wireCloneDrag(clone);
+      selectClone(clone);
+      startDraggingElement(clone, e, offsetX, offsetY);
+    }
+
+    function duplicateSelectedClone() {
+      if (!selectedClone) return;
+      let clone;
+
+      if (selectedClone.classList.contains('widgetClone')) {
+        if (selectedClone.dataset.widgetType === 'timer') {
+          const timeDisplay = selectedClone.querySelector('.timer-display')?.textContent || '00:00';
+          clone = makeTimerWidgetHTML(timeDisplay);
+          clone.dataset.timerSeconds = selectedClone.dataset.timerSeconds || '0';
+        } else if (selectedClone.dataset.widgetType === 'scoreboard') {
+          const a = parseInt(selectedClone.querySelector('.score-a')?.textContent || '0', 10);
+          const b = parseInt(selectedClone.querySelector('.score-b')?.textContent || '0', 10);
+          clone = makeScoreboardWidgetHTML(a, b);
+        } else if (selectedClone.dataset.widgetType === 'hotspot-tool') {
+          clone = makeHotspotToolWidgetHTML();
+        } else if (selectedClone.dataset.widgetType === 'text-tool') {
+          clone = makeTextToolWidgetHTML();
+          const srcText = selectedClone.querySelector('.textBoxArea');
+          const newText = clone.querySelector('.textBoxArea');
+          if (srcText && newText) newText.value = srcText.value;
+        } else if (selectedClone.dataset.widgetType === 'media-tool') {
+          clone = makeMediaToolWidgetHTML();
+          const srcInput = selectedClone.querySelector('.mediaUrlInput');
+          const srcPoster = selectedClone.querySelector('.mediaPosterInput');
+          const srcFrame = selectedClone.querySelector('.mediaFrame');
+          const srcVideo = selectedClone.querySelector('.mediaVideo');
+          const newInput = clone.querySelector('.mediaUrlInput');
+          const newPoster = clone.querySelector('.mediaPosterInput');
+          const newFrame = clone.querySelector('.mediaFrame');
+          const newVideo = clone.querySelector('.mediaVideo');
+          const newVideoSource = clone.querySelector('.mediaVideoSource');
+
+          if (srcInput && newInput) newInput.value = srcInput.value;
+          if (srcPoster && newPoster) newPoster.value = srcPoster.value;
+          if (srcFrame && newFrame && srcFrame.src) {
+            newFrame.src = srcFrame.src;
+            newFrame.style.display = srcFrame.style.display;
+          }
+          if (srcVideo && newVideo && srcVideo.currentSrc) {
+            newVideoSource.src = srcVideo.currentSrc;
+            newVideo.style.display = srcVideo.style.display;
+            if (srcVideo.poster) newVideo.poster = srcVideo.poster;
+            newVideo.load();
+          }
+        }
+      } else {
+        clone = selectedClone.cloneNode(true);
+        clone.classList.remove('selected', 'multiSelected');
+        clone.classList.add('stageClone');
+      }
+
+      if (!clone) return;
+
+      cloneCounter += 1;
+      clone.id = (selectedClone.id.split('-clone-')[0] || 'clone') + '-clone-' + cloneCounter;
+      clone.dataset.scale = selectedClone.dataset.scale || '1';
+      clone.dataset.rotation = selectedClone.dataset.rotation || '0';
+      clone.dataset.locked = 'false';
+      clone.style.zIndex = cloneZCounter++;
+
+      const left = parseFloat(selectedClone.style.left || '0');
+      const top = parseFloat(selectedClone.style.top || '0');
+
+      clone.style.left = (left + 30) + 'px';
+      clone.style.top = (top + 30) + 'px';
+      clone.style.width = selectedClone.style.width;
+
+      applyCloneTransform(clone);
+      stage.appendChild(clone);
+
+      if (clone.classList.contains('widgetClone')) {
+        wireWidgetInternalControls(clone);
+        wireWidgetCloneDrag(clone);
+      } else {
+        wireCloneDrag(clone);
+      }
+
+      selectClone(clone);
+    }
+
+    function createHotspot(x, y) {
+      hotspotCounter += 1;
+      const hotspot = document.createElement('div');
+      hotspot.className = 'hotspot';
+      hotspot.id = 'hotspot-' + hotspotCounter;
+      hotspot.textContent = '+';
+      hotspot.style.left = x + 'px';
+      hotspot.style.top = y + 'px';
+      hotspot.dataset.title = '';
+      hotspot.dataset.note = '';
+      hotspot.dataset.locked = 'false';
+      stage.appendChild(hotspot);
+      wireHotspot(hotspot);
+      selectHotspot(hotspot);
+      openHotspotEditor(hotspot);
+    }
+
+    function selectHotspot(hotspot) {
+      document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('selected'));
+      selectedHotspot = hotspot;
+      hotspot.classList.add('selected');
+    }
+
+    function updateHotspotEditorPosition() {
+      if (!selectedHotspot || hotspotEditor.style.display === 'none') return;
+
+      const rect = selectedHotspot.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+
+      let left = rect.left - stageRect.left + 40;
+      let top = rect.top - stageRect.top - 20;
+
+      if (left > stageRect.width - 340) left = stageRect.width - 340;
+      if (top > stageRect.height - 220) top = stageRect.height - 220;
+      if (top < 10) top = 10;
+
+      hotspotEditor.style.left = left + 'px';
+      hotspotEditor.style.top = top + 'px';
+    }
+
+    function openHotspotEditor(hotspot) {
+      selectHotspot(hotspot);
+      hotspotTitle.value = hotspot.dataset.title || '';
+      hotspotNote.value = hotspot.dataset.note || '';
+      hotspotEditor.style.display = 'block';
+      updateHotspotEditorPosition();
+    }
+
+    function hideHotspotEditor() {
+      hotspotEditor.style.display = 'none';
+      document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('selected'));
+      selectedHotspot = null;
+    }
+
+    function wireHotspot(hotspot) {
+      hotspot.addEventListener('pointerdown', function(e) {
+        if (mode !== 'move') return;
+        e.stopPropagation();
+
+        if (hotspot.dataset.locked === 'true') {
+          openHotspotEditor(hotspot);
+          return;
+        }
+
+        const rect = hotspot.getBoundingClientRect();
+        const stageRect = stage.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+
+        selectHotspot(hotspot);
+        openHotspotEditor(hotspot);
+
+        let dragging = true;
+        hotspot.setPointerCapture(e.pointerId);
+
+        function onMove(ev) {
+          if (!dragging) return;
+          const rawX = ev.clientX - stageRect.left - offsetX;
+          const rawY = ev.clientY - stageRect.top - offsetY;
+          const maxX = stageRect.width - rect.width;
+          const maxY = stageRect.height - rect.height;
+          hotspot.style.left = Math.max(0, Math.min(rawX, maxX)) + 'px';
+          hotspot.style.top = Math.max(0, Math.min(rawY, maxY)) + 'px';
+          updateHotspotEditorPosition();
+        }
+
+        function onEnd() {
+          dragging = false;
+          hotspot.removeEventListener('pointermove', onMove);
+          hotspot.removeEventListener('pointerup', onEnd);
+          hotspot.removeEventListener('pointercancel', onEnd);
+        }
+
+        hotspot.addEventListener('pointermove', onMove);
+        hotspot.addEventListener('pointerup', onEnd);
+        hotspot.addEventListener('pointercancel', onEnd);
+      });
+
+      hotspot.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openHotspotEditor(hotspot);
+      });
+    }
+
+    folderItems.forEach(item => {
+      item.addEventListener('pointerdown', function(e) {
+        if (mode !== 'move') return;
+        if (itemFolderMap[item.id] !== activeFolder) return;
+        if (!(lessonResourcesOpen && earlyYearsOpen)) return;
+        createCloneFromOriginal(item, e);
+      });
+    });
+
+    scaleUpBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      let scale = parseFloat(selectedClone.dataset.scale || '1');
+      scale = Math.min(8, scale + 0.2);
+      selectedClone.dataset.scale = scale.toFixed(2);
+      applyCloneTransform(selectedClone);
+      updateScaleControlsPosition();
+    });
+
+    scaleDownBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      let scale = parseFloat(selectedClone.dataset.scale || '1');
+      scale = Math.max(0.2, scale - 0.2);
+      selectedClone.dataset.scale = scale.toFixed(2);
+      applyCloneTransform(selectedClone);
+      updateScaleControlsPosition();
+    });
+
+    rotateLeftBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      let rotation = parseFloat(selectedClone.dataset.rotation || '0');
+      rotation -= 15;
+      selectedClone.dataset.rotation = rotation.toString();
+      applyCloneTransform(selectedClone);
+      updateScaleControlsPosition();
+    });
+
+    rotateRightBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      let rotation = parseFloat(selectedClone.dataset.rotation || '0');
+      rotation += 15;
+      selectedClone.dataset.rotation = rotation.toString();
+      applyCloneTransform(selectedClone);
+      updateScaleControlsPosition();
+    });
+
+    bringForwardBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      selectedClone.style.zIndex = cloneZCounter++;
+      updateScaleControlsPosition();
+    });
+
+    sendBackwardBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      let current = parseInt(selectedClone.style.zIndex || '100', 10);
+      current = Math.max(51, current - 10);
+      selectedClone.style.zIndex = current;
+      updateScaleControlsPosition();
+    });
+
+    duplicateCloneBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      duplicateSelectedClone();
+    });
+
+    deleteCloneBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      selectedClone.remove();
+      selectedClones = selectedClones.filter(clone => clone !== selectedClone);
+      deselectClone();
+      updateSelectionStatus();
+    });
+
+    lockBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      selectedClone.dataset.locked = 'true';
+      selectedClone.classList.add('locked');
+    });
+
+    unlockBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedClone) return;
+      selectedClone.dataset.locked = 'false';
+      selectedClone.classList.remove('locked');
+    });
+
+    saveHotspotBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      if (!selectedHotspot) return;
+      selectedHotspot.dataset.title = hotspotTitle.value;
+      selectedHotspot.dataset.note = hotspotNote.value;
+      selectedHotspot.textContent = hotspotTitle.value ? hotspotTitle.value.charAt(0).toUpperCase() : '+';
+    });
+
+    deleteHotspotBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      if (!selectedHotspot) return;
+      selectedHotspot.remove();
+      hideHotspotEditor();
+    });
+
+    hotspotEditor.addEventListener('pointerdown', function(e) {
+      e.stopPropagation();
+    });
+
+    scaleControls.addEventListener('pointerdown', function(e) {
+      e.stopPropagation();
+    });
+
+    stage.addEventListener('pointerdown', function(e) {
+      const clickedClone = e.target.closest('.stageClone, .widgetClone');
+      const clickedControls = e.target.closest('#scaleControls');
+      const clickedSidebar = e.target.closest('#sidebar');
+      const clickedToolbar = e.target.closest('#topPanels');
+      const clickedHotspot = e.target.closest('.hotspot');
+      const clickedHotspotEditor = e.target.closest('#hotspotEditor');
+
+      if (clickedClone || clickedControls || clickedSidebar || clickedToolbar || clickedHotspot || clickedHotspotEditor) {
+        return;
+      }
+
+      if (addHotspotMode) {
+        const stageRect = stage.getBoundingClientRect();
+        createHotspot(e.clientX - stageRect.left - 17, e.clientY - stageRect.top - 17);
+        addHotspotMode = false;
+        return;
+      }
+
+      hideHotspotEditor();
+
+      if (mode === 'move' && !multiSelectMode) {
+        deselectClone();
+      }
+    });
+
+    function resetStageClones() {
+      document.querySelectorAll('.stageClone, .widgetClone').forEach(clone => clone.remove());
+      document.querySelectorAll('.hotspot').forEach(h => h.remove());
+      deselectClone();
+      hideHotspotEditor();
+      clearMultiSelection();
+      groupMoveMode = false;
+      groupMoveBtn.classList.remove('active');
+      addHotspotMode = false;
+      spotlightMode = false;
+      updateSpotlight();
+      layoutFolderItems();
+      layoutWidgetMasters();
+    }
+
+    resetBtn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      resetStageClones();
+    });
+
+    window.addEventListener('resize', function() {
+      resizeCanvas();
+    });
+
+    updateFolderContentVisibility();
+    updateSelectionStatus();
+    setStageBackgroundImage('background.jpg');
+    showFolder('planets');
+    updateSidebarState();
+    resizeCanvas();
+    setMode('move');
+  </script>
+</body>
+</html>
